@@ -1,0 +1,1257 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NVDA 密室逃脫：雨夜神社之謎</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        :focus {
+            outline: 4px solid #FFFF00;
+            background-color: #00008B;
+            color: white;
+            z-index: 50;
+            position: relative;
+        }
+
+        #blind-curtain {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: black;
+            z-index: 9999;
+            display: none;
+            cursor: none;
+        }
+
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #1a1a1a;
+            color: #e0e0e0;
+            transition: all 0.3s;
+            overflow-x: hidden;
+        }
+
+        .game-area {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1; 
+        }
+
+        .item-btn {
+            width: 100%;
+            text-align: left;
+            padding: 1rem;
+            margin-bottom: 0.5rem;
+            background: #2d2d2d;
+            color: #fff;
+            border: 1px solid #444;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            transition: all 0.2s;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+        }
+
+        .item-btn:hover {
+            background-color: #3d3d3d;
+            border-color: #666;
+        }
+        
+        .item-btn[data-processing="true"] {
+            opacity: 0.7;
+            cursor: wait;
+        }
+
+        /* 網格佈局 */
+        .grid-layout {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        
+        @media (max-width: 640px) {
+            .grid-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .scene-image-container {
+            width: 100%;
+            height: 350px;
+            border-radius: 8px;
+            margin-bottom: 1.5rem;
+            border: 2px solid #555;
+            background-color: #000;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .scene-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+
+        .scene-image.visible {
+            opacity: 1;
+            z-index: 10;
+        }
+
+        .loading-spinner {
+            position: absolute;
+            width: 50px;
+            height: 50px;
+            border: 5px solid #333;
+            border-top: 5px solid #eab308;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            z-index: 5;
+        }
+
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 1.5s ease-out forwards; }
+        .virtual-focus { outline: 2px dashed red; background-color: #4a0000; }
+    </style>
+</head>
+<body>
+
+    <div id="blind-curtain"></div>
+
+    <div class="game-area" id="main-content">
+        <header class="mb-8 border-b-2 border-gray-700 pb-4">
+            <h1 class="text-3xl font-bold mb-2 text-yellow-500" tabindex="-1">NVDA 密室逃脫：雨夜神社之謎</h1>
+            
+            <div id="instructions" class="bg-gray-800 p-4 rounded-lg mb-4 text-sm border-l-4 border-yellow-600 text-gray-300">
+                <h2 class="font-bold text-lg mb-2 text-white" tabindex="-1">操作說明 (快捷鍵)</h2>
+                <ul class="list-disc pl-5 space-y-1">
+                    <li><strong>Tab</strong>：依序移動到下一個按鈕。</li>
+                    <li><strong>方向鍵 (上下左右)</strong>：依照實際方位移動遊標。</li>
+                    <li><strong>G</strong>：跳轉至圖片 (Next Graphic)。利用此功能聆聽圖片描述來尋找線索。</li>
+                    <li><strong>Enter</strong>：執行/確認。</li>
+                    <li><strong>H</strong>：在標題間循環跳轉。</li>
+                    <li><strong>F9</strong>：開關視覺 (全黑模式)。</li>
+                    <li><strong>Ctrl</strong>：停止朗讀。</li>
+                </ul>
+            </div>
+            
+            <div class="flex gap-4 flex-wrap">
+                <button id="start-btn" class="bg-yellow-700 text-white px-6 py-2 rounded hover:bg-yellow-600 font-bold text-lg cursor-pointer z-10 border border-yellow-500 shadow-lg">
+                    開始體驗 (進入全黑模式)
+                </button>
+                <button id="toggle-visual-btn" class="bg-gray-600 text-white px-4 py-2 rounded text-sm cursor-pointer z-10 hover:bg-gray-500 border border-gray-500">
+                    教師專用：開關視覺 (F9)
+                </button>
+            </div>
+
+            <div class="mt-6 text-gray-500 text-sm font-medium">
+                關卡設計者: Gemini Chen
+            </div>
+
+            <div id="status-log" class="mt-4 p-2 bg-gray-800 text-sm border border-gray-600 rounded hidden text-green-400 font-mono">
+                <strong>語音輸出紀錄:</strong> <span id="last-spoken">...</span>
+            </div>
+        </header>
+
+        <main id="game-container" class="hidden" aria-live="polite">
+            <h2 id="scene-heading" tabindex="-1" class="text-2xl font-bold mb-4 text-yellow-100">神社境內</h2>
+            
+            <div id="scene-img-container" class="scene-image-container" aria-hidden="true">
+                <div class="loading-spinner"></div>
+                <img id="scene-img" src="" alt="場景示意圖" class="scene-image" tabindex="0">
+            </div>
+
+            <h3 class="font-bold text-md text-gray-400 mb-1" tabindex="-1">背包狀態</h3>
+            <div id="inventory-display" class="readable mb-6 text-sm text-gray-300 p-2 bg-gray-900 rounded border border-gray-700" tabindex="-1">
+                背包物品: 無
+            </div>
+
+            <div id="interaction-area" class="flex flex-col gap-2">
+                <!-- JS 動態生成 -->
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // ==============================================
+        // 1. 全域變數宣告
+        // ==============================================
+        
+        const synth = window.speechSynthesis;
+        let voices = [];
+        let isSystemSpeaking = false; 
+        
+        let audioCtx = null;
+        let ambientTimer = null;
+        let birdTimer = null;
+        let masterGain = null;
+        let reverbNode = null;
+        let rainNodes = [];
+
+        let currentLayoutMode = 'list'; 
+
+        const gameState = {
+            doorOpen: false, safeUnlocked: false, hasScrewdriver: false, hasRustyKey: false,
+            hasBattery: false, hasKeycard: false, drawerOpen: false, radioUnscrewed: false,
+            radioFixed: false, stoneCleaned: false, diaryRead: false, paintingExamined: false,
+            // 移除点字表相关状态
+            inventory: [], isBlindMode: false, codeKnown: false,
+            wrongPasswordCount: 0, fullExploration: false
+        };
+
+        const scenePrompts = {
+            main: "dark japanese shrine torii gate night rain wet stone pavement gloomy atmosphere horror style cinematic lighting 8k",
+            mainOpen: "japanese shrine torii gate sunrise morning light glowing magical particles hope cinematic 8k",
+            desk: "old wooden reception counter japanese shrine stone lantern mossy night dark atmosphere close up detail 8k",
+            deskLit: "old stone lantern glowing with warm light in dark japanese shrine night atmosphere close up 8k",
+            bookshelf: "wooden ema rack japanese shrine with broken shamisen instrument hanging rain night close up detail",
+            // 三味線特寫：左邊兩點
+            shamisenClue: "japanese shamisen instrument close up mother of pearl inlay two vertical dots pattern 8k",
+            bed: "old broken wooden bench with three legs under big tree japanese shrine night rain wet wood texture",
+            // 長椅特寫：左上右上兩點
+            bedClue: "wooden armrest close up with two deep carved holes pattern texture detail 8k",
+            rug: "old rotten tatami floor mats japanese temple close up texture detail worn out dark ambient",
+            painting: "ancient stone tablet japanese shrine sakura flower carving mossy weathered night rain close up",
+            // 石碑特寫：左上右中兩點
+            paintingCleaned: "stone tablet surface close up japanese sakura carving with two distinct bumps tactile pattern braille style 8k",
+            safe: "antique japanese karakuri puzzle box wooden intricate mechanism glowing mysterious 8k"
+        };
+
+        const sceneImageAlts = {
+            main: "圖片：深夜的日式神社，巨大的紅色鳥居聳立在雨中，地面是濕漉漉的石板路，氣氛陰森。",
+            mainOpen: "圖片：清晨的神社，陽光穿透鳥居灑落，金色的光芒驅散了黑暗，充滿希望的景象。",
+            desk: "圖片：老舊的木製社務所櫃檯。櫃檯上有一盞石燈籠，似乎需要光線才能看清內部的構造。",
+            // 燈籠線索：Braille 1 (⠁) -> 左上 (Dot 1)
+            deskLit: "圖片：(線索) 深夜的神社中，石燈籠發出了溫暖的光芒。燭光透過特殊的燈罩投射在陰暗的牆上，光影形成了一個方塊區域，其中只有【左上角】是亮的，其他地方都是黑的。",
+            bookshelf: "圖片：一個掛滿繪馬的木架，旁邊掛著一把斷了弦的三味線。",
+            // 三味線線索：Braille 2 (⠃) -> 左上, 左中 (Dots 1, 2)
+            shamisenClue: "圖片：(線索) 三味線琴身的特寫。黑色的木頭上鑲嵌著白色的珍珠母貝：左邊形成了一條直線，分別是【左上角】有一顆，以及它正下方的【左中】位置有一顆。",
+            bed: "圖片：樹下的一張參拜者休息長椅，木頭已經腐朽，而且明顯少了一隻腳。",
+            // 長椅線索：Braille 3 (⠉) -> 左上, 右上 (Dots 1, 4)
+            bedClue: "圖片：(線索) 長椅扶手的特寫。木頭上被人刻意鑽出了兩個洞：一個在【左上角】，另一個在【右上角】，形成平行的兩個點。",
+            rug: "圖片：本殿內部的地板，鋪著發霉破舊的塌塌米，編織的藺草已經散開。",
+            painting: "圖片：角落裡的一塊古老石碑，表面長滿青苔，隱約可以看出上面有雕刻。",
+            // 石碑線索：Braille 5 (⠑) -> 左上, 右中 (Dots 1, 5)
+            paintingCleaned: "圖片：(線索) 石碑表面的青苔被清除後，露出了浮雕圖案。這不是普通的裝飾，而是一個方塊圖案，【左上角】有一個明顯的凸點，【右邊中間】也有一個凸點。",
+            safe: "圖片：一個做工精細的寄木細工風格木盒，表面佈滿複雜的幾何紋路，看似需要輸入四位數密碼才能解開機關。"
+        };
+
+        // ==============================================
+        // 2. 工具與輔助函數
+        // ==============================================
+
+        function preloadImages() {
+            Object.keys(scenePrompts).forEach(key => {
+                const prompt = scenePrompts[key];
+                const seed = key.length * 123; 
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=350&nologo=true&seed=${seed}`;
+                const img = new Image();
+                img.src = url;
+            });
+        }
+
+        function loadVoices() {
+            if(synth) voices = synth.getVoices();
+        }
+        if (synth && synth.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+
+        function speak(text, role = "", interrupt = true) {
+            if (isSystemSpeaking && !interrupt) return;
+            if (interrupt && synth) synth.cancel();
+
+            const logEl = document.getElementById('last-spoken');
+            if(logEl) logEl.innerText = text + (role ? ` (${role})` : "");
+
+            if(!synth) return;
+
+            const fullText = role ? `${text}, ${role}` : text;
+            const utterance = new SpeechSynthesisUtterance(fullText);
+            const zhVoice = voices.find(v => v.lang === 'zh-TW') || voices.find(v => v.lang.includes('zh'));
+            if (zhVoice) utterance.voice = zhVoice;
+            
+            utterance.volume = 1.0; 
+            utterance.rate = 1.3; 
+            
+            synth.speak(utterance);
+            return utterance;
+        }
+
+        // ==============================================
+        // 3. 音效系統 (sfx)
+        // ==============================================
+
+        const sfx = {
+            init: () => {
+                if (!audioCtx) {
+                    try {
+                        const AudioContext = window.AudioContext || window.webkitAudioContext;
+                        if (AudioContext) {
+                            audioCtx = new AudioContext();
+                            masterGain = audioCtx.createGain();
+                            masterGain.gain.value = 0.6; 
+                            masterGain.connect(audioCtx.destination);
+                            reverbNode = audioCtx.createConvolver();
+                            reverbNode.buffer = sfx.createImpulseResponse(2, 2, false); 
+                            reverbNode.connect(masterGain);
+                        }
+                    } catch (e) { console.error("Audio Error", e); }
+                }
+                if(audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+            },
+            createImpulseResponse: (duration, decay, reverse) => {
+                if (!audioCtx) return null;
+                const rate = audioCtx.sampleRate;
+                const length = rate * duration;
+                const impulse = audioCtx.createBuffer(2, length, rate);
+                const left = impulse.getChannelData(0);
+                const right = impulse.getChannelData(1);
+                for (let i = 0; i < length; i++) {
+                    let n = reverse ? length - i : i;
+                    let gain = (1 - n / length) ** decay;
+                    left[i] = (Math.random() * 2 - 1) * gain;
+                    right[i] = (Math.random() * 2 - 1) * gain;
+                }
+                return impulse;
+            },
+            createNoiseBuffer: (duration = 1) => {
+                if (!audioCtx) return null;
+                const ctx = audioCtx;
+                const buffer = ctx.createBuffer(1, ctx.sampleRate * duration, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < buffer.length; i++) data[i] = Math.random() * 2 - 1;
+                return buffer;
+            },
+            createPinkNoise: (bufferSize) => {
+                if (!audioCtx) return null;
+                const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                let b0=0, b1=0, b2=0, b3=0, b4=0, b5=0, b6=0;
+                for (let i = 0; i < bufferSize; i++) {
+                    const white = Math.random() * 2 - 1;
+                    b0 = 0.99886 * b0 + white * 0.0555179;
+                    b1 = 0.99332 * b1 + white * 0.0750759;
+                    b2 = 0.96900 * b2 + white * 0.1538520;
+                    b3 = 0.86650 * b3 + white * 0.3104856;
+                    b4 = 0.55000 * b4 + white * 0.5329522;
+                    b5 = -0.7616 * b5 - white * 0.0168980;
+                    data[i] = b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * 0.5362;
+                    data[i] *= 0.11; 
+                    b6 = white * 0.115926;
+                }
+                return buffer;
+            },
+            playTone: (type, freqStart, freqEnd, duration, vol, pan = 0, useReverb = false) => {
+                sfx.init();
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                const panner = audioCtx.createStereoPanner();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freqStart, t);
+                if (freqEnd) osc.frequency.exponentialRampToValueAtTime(freqEnd, t + duration);
+                gain.gain.setValueAtTime(vol, t);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+                panner.pan.value = pan;
+                osc.connect(gain).connect(panner);
+                if (useReverb) panner.connect(reverbNode);
+                panner.connect(masterGain);
+                osc.start(t);
+                osc.stop(t + duration);
+            },
+            playNoise: (filterType, freq, duration, vol, pan = 0) => {
+                sfx.init();
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                const noise = audioCtx.createBufferSource();
+                noise.buffer = sfx.createNoiseBuffer(duration);
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = filterType;
+                filter.frequency.value = freq;
+                const gain = audioCtx.createGain();
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(vol, t + 0.05);
+                gain.gain.linearRampToValueAtTime(0, t + duration);
+                const panner = audioCtx.createStereoPanner();
+                panner.pan.value = pan;
+                noise.connect(filter).connect(gain).connect(panner).connect(masterGain);
+                noise.start(t);
+            },
+            startRain: () => {
+                sfx.init();
+                if (!audioCtx || rainNodes.length > 0) return;
+                const buffer = sfx.createPinkNoise(audioCtx.sampleRate * 5); 
+                if (!buffer) return;
+                const setupLayer = (freq, type, vol, pan, connectToReverb) => {
+                    const src = audioCtx.createBufferSource();
+                    src.buffer = buffer;
+                    src.loop = true;
+                    const filter = audioCtx.createBiquadFilter();
+                    filter.type = type;
+                    filter.frequency.value = freq; 
+                    const gain = audioCtx.createGain();
+                    gain.gain.value = vol; 
+                    const panner = audioCtx.createStereoPanner();
+                    panner.pan.value = pan; 
+                    src.connect(filter).connect(gain).connect(panner);
+                    if(connectToReverb) panner.connect(reverbNode);
+                    panner.connect(audioCtx.destination);
+                    src.start();
+                    rainNodes.push(src);
+                };
+                setupLayer(250, 'lowpass', 0.25, -0.2, false); 
+                setupLayer(2000, 'highpass', 0.09, 0.2, true);  
+            },
+            drip: () => sfx.playTone('sine', 800 + Math.random()*300, 200, 0.3, 0.6, (Math.random()*1.6)-0.8, true),
+            crow: () => sfx.playTone('sawtooth', 500, 400, 0.6, 0.3, (Math.random()*2)-1, true),
+            startAmbient: () => {
+                if (ambientTimer) return;
+                sfx.startRain();
+                const loopDrip = () => {
+                    ambientTimer = setTimeout(() => {
+                        const gc = document.getElementById('game-container');
+                        if(gc && !gc.classList.contains('hidden')) sfx.drip();
+                        loopDrip();
+                    }, 1000 + Math.random() * 3000);
+                };
+                loopDrip();
+                const loopBird = () => {
+                    birdTimer = setTimeout(() => {
+                        const gc = document.getElementById('game-container');
+                        if(gc && !gc.classList.contains('hidden')) {
+                             sfx.crow();
+                             if(Math.random() > 0.5) setTimeout(() => sfx.crow(), 800);
+                        }
+                        loopBird();
+                    }, 15000 + Math.random() * 20000);
+                };
+                loopBird();
+            },
+            click: (pan=0) => sfx.playTone('sine', 800, null, 0.1, 0.05, pan, false),
+            error: (pan=0) => sfx.playTone('sawtooth', 150, 100, 0.3, 0.1, pan, false),
+            success: (pan=0) => {
+                sfx.init();
+                if (!audioCtx) return;
+                const t = audioCtx.currentTime;
+                [880, 1108, 1318].forEach((f, i) => {
+                    const o = audioCtx.createOscillator(); o.frequency.value = f; o.type='triangle';
+                    const g = audioCtx.createGain(); g.gain.setValueAtTime(0, t+i*0.1); g.gain.linearRampToValueAtTime(0.1, t+i*0.1+0.05); g.gain.exponentialRampToValueAtTime(0.001, t+i*0.1+1);
+                    const p = audioCtx.createStereoPanner(); p.pan.value = pan;
+                    o.connect(g).connect(p).connect(reverbNode);
+                    o.start(t+i*0.1); o.stop(t+i*0.1+1.1);
+                });
+            },
+            unlock: (pan=0) => sfx.playTone('square', 200, null, 0.15, 0.05, pan, false),
+            static: (duration=1, pan=0) => sfx.playNoise('lowpass', 400, duration, 0.05, pan),
+            pageFlip: (pan=0) => sfx.playNoise('bandpass', 800, 0.3, 0.3, pan),
+            rustle: (pan=0) => sfx.playNoise('highpass', 1000, 0.5, 0.2, pan),
+            thud: (pan=0) => sfx.playTone('square', 150, 50, 0.2, 0.5, pan, true),
+            metal: (pan=0) => {
+                sfx.playTone('sine', 2000, null, 0.5, 0.05, pan, true);
+                sfx.playTone('sine', 2800, null, 0.5, 0.05, pan, true);
+            },
+            tap: (pan=0) => sfx.playTone('triangle', 800, null, 0.1, 0.1, pan, true),
+            twang: (pan=0) => sfx.playTone('sawtooth', 300, 100, 0.6, 0.1, pan, true)
+        };
+
+        // ==============================================
+        // 4. 邏輯函數
+        // ==============================================
+
+        function handleInteractionInPlace(event, speechText, newButtonText, callback, soundType = null, pan = 0) {
+            const btn = event.target;
+            if(!btn || btn.dataset.processing === "true") return;
+            btn.dataset.processing = "true";
+
+            if(soundType && sfx[soundType]) sfx[soundType](pan);
+            else sfx.click(pan);
+
+            const utterance = speak(speechText, "", true);
+
+            const finish = () => {
+                if(newButtonText) btn.innerText = newButtonText;
+                btn.dataset.processing = "false";
+                btn.focus();
+                if(callback) callback();
+            };
+
+            if (utterance) utterance.onend = () => setTimeout(finish, 500);
+            else finish();
+        }
+
+        function speakThenTransition(text, callback, soundType = null) {
+            isSystemSpeaking = true; 
+            document.querySelectorAll('button').forEach(b => b.disabled = true);
+            if(soundType && sfx[soundType]) sfx[soundType](0);
+            const utterance = speak(text, "", true);
+            const finish = () => { isSystemSpeaking = false; callback(); };
+            if (utterance) {
+                utterance.onend = () => setTimeout(finish, 1500);
+                setTimeout(() => { if (isSystemSpeaking) finish(); }, 4000);
+            } else finish();
+        }
+
+        function handleFocusTrap(e) {
+            const els = Array.from(document.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'))
+                .filter(el => el.offsetParent !== null);
+            if (els.length === 0) return e.preventDefault();
+            const first = els[0], last = els[els.length - 1];
+            if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+            else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+        }
+
+        function toggleBlindMode() {
+            if (isSystemSpeaking) {
+                // 不打斷
+            } else {
+                if(synth) synth.cancel();
+            }
+
+            gameState.isBlindMode = !gameState.isBlindMode;
+            const curtain = document.getElementById('blind-curtain');
+            if(curtain) {
+                curtain.style.display = gameState.isBlindMode ? 'block' : 'none';
+            }
+            
+            const msg = gameState.isBlindMode ? "全黑模式開啟。" : "全黑模式關閉。";
+            if(!isSystemSpeaking) {
+                speak(msg, "系統提示", false);
+            }
+        }
+
+        function updateInventoryDisplay() {
+            const invText = gameState.inventory.length > 0 ? gameState.inventory.join(", ") : "空";
+            const display = document.getElementById('inventory-display');
+            if(display) display.innerText = `背包物品: ${invText}`;
+        }
+
+        function updateScene(title, desc, buttons, promptKey, layoutType = 'list') {
+            const sceneHeading = document.getElementById('scene-heading');
+            // 已移除 sceneDesc 變數
+            const interactionArea = document.getElementById('interaction-area');
+            const sceneImg = document.getElementById('scene-img');
+            
+            currentLayoutMode = layoutType;
+
+            sceneHeading.innerText = title;
+            // 已移除 sceneDesc.innerText = desc;
+            updateInventoryDisplay();
+            
+            sceneImg.classList.remove('visible'); 
+            if (promptKey && scenePrompts[promptKey]) {
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[promptKey])}?width=800&height=350&nologo=true&seed=${promptKey.length*123}`;
+                sceneImg.src = url;
+                // 設定圖片 Alt 屬性與 TabIndex
+                sceneImg.alt = sceneImageAlts[promptKey] || "場景示意圖片";
+                sceneImg.tabIndex = 0; 
+
+                sceneImg.onload = () => sceneImg.classList.add('visible');
+                sceneImg.onerror = () => sceneImg.src = '';
+            }
+
+            interactionArea.innerHTML = '';
+            
+            if (layoutType === 'grid') {
+                interactionArea.className = 'grid-layout';
+            } else {
+                interactionArea.className = 'flex flex-col gap-2';
+            }
+
+            buttons.forEach(btnData => {
+                const btn = document.createElement('button');
+                btn.className = "item-btn shadow-sm";
+                btn.innerText = btnData.text;
+                if (btnData.id) btn.id = btnData.id;
+                
+                if (layoutType === 'grid' && btnData.gridClass) {
+                    btn.className += ` ${btnData.gridClass}`;
+                }
+
+                btn.onclick = (e) => btnData.action(e);
+                
+                // 新增：綁定 onFocus 與 mouseenter
+                if (btnData.onFocus) {
+                    btn.addEventListener('focus', (e) => btnData.onFocus(e));
+                    btn.addEventListener('mouseenter', (e) => btnData.onFocus(e));
+                }
+
+                interactionArea.appendChild(btn);
+            });
+            setTimeout(() => sceneHeading.focus(), 100);
+        }
+
+        function renderEnding(type) {
+            const curtain = document.getElementById('blind-curtain');
+            if(curtain) curtain.style.display = 'none';
+            gameState.isBlindMode = false;
+            
+            const container = document.getElementById('game-container');
+            container.innerHTML = '';
+            container.className = "flex flex-col items-center justify-center min-h-[50vh] text-center px-4"; 
+            
+            let prompt = "", title = "", msg = "", voice = "", styleClass = "", imgAlt = "";
+
+            if (type === 'bad') {
+                sfx.error();
+                title = "遊戲結束";
+                msg = "你感覺到黑暗中有東西被激怒了... 呼吸變得困難... 你永遠留在了這裡。";
+                voice = msg;
+                prompt = "dark scary japanese ghost spirit demon face horror nightmare 8k";
+                styleClass = "border-red-600 text-red-800";
+                imgAlt = "圖片：一張恐怖的惡靈面孔在黑暗中浮現，象徵悲慘的結局。";
+            } else if (type === 'true') {
+                sfx.success();
+                title = "完美逃脫：神隱歸還";
+                msg = "恭喜逃脫！感謝您的遊玩。";
+                voice = msg;
+                prompt = "beautiful japanese cherry blossom falling sakura shrine peaceful sunlight fantasy 8k";
+                styleClass = "border-pink-400 text-pink-800";
+                imgAlt = "圖片：美麗的櫻花飄落在充滿陽光的神社，象徵完美的結局。";
+            } else {
+                sfx.success();
+                title = "恭喜逃脫！";
+                msg = "恭喜逃脫！感謝您的遊玩。";
+                voice = msg;
+                prompt = "japanese shrine torii gate sunrise morning light glowing magical particles hope cinematic 8k";
+                styleClass = "border-yellow-400 text-gray-800";
+                imgAlt = "圖片：日出時分的鳥居，充滿希望的光芒，象徵成功逃脫。";
+            }
+
+            const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=800&height=350&nologo=true&seed=${type.length}`;
+            
+            const content = `
+                <div class="max-w-2xl w-full bg-white p-8 rounded-xl shadow-2xl border-4 ${styleClass} animate-fade-in">
+                    <div class="scene-image-container mb-6 mx-auto w-full shadow-lg rounded overflow-hidden border-2 border-gray-800">
+                        <img src="${url}" class="w-full h-full object-cover visible" alt="${imgAlt}" tabindex="0">
+                    </div>
+                    <h2 id="ending-title" class="text-4xl font-bold mb-4" tabindex="-1">${title}</h2>
+                    <p class="readable text-xl mb-8 leading-relaxed" tabindex="0">${msg}</p>
+                    <button onclick="location.reload()" class="bg-gray-800 text-white px-8 py-3 rounded-full font-bold hover:bg-gray-700">重新開始</button>
+                </div>
+            `;
+            
+            container.innerHTML = content;
+            isSystemSpeaking = false;
+            setTimeout(() => {
+                speak(voice, "系統訊息");
+                const t = document.getElementById('ending-title');
+                if(t) t.focus();
+            }, 500);
+        }
+
+        // ==============================================
+        // 5. 場景邏輯
+        // ==============================================
+
+        function renderMainRoom(e) {
+            let desc = "你站在深夜的神社境內，雨水打在石板路上。四周一片漆黑，只能依賴聽覺和觸覺。";
+            let promptKey = "main";
+            if(gameState.doorOpen) {
+                desc = "結界已經解除，清晨的微光從鳥居外透了進來。";
+                promptKey = "mainOpen";
+            }
+            
+            const buttons = [
+                { text: "古老石碑 (左前)", action: renderPainting, gridClass: "col-start-1 row-start-1" },
+                { text: "社務所櫃檯 (前)", action: renderDesk, gridClass: "col-start-2 row-start-1" },
+                { text: "機關木盒 (右前)", action: renderSafe, gridClass: "col-start-3 row-start-1" },
+
+                { text: "繪馬架 (左)", action: renderBookshelf, gridClass: "col-start-1 row-start-2" },
+                { text: "本殿塌塌米 (中)", action: renderRug, gridClass: "col-start-2 row-start-2" },
+                { text: "參拜者長椅 (右)", action: renderBed, gridClass: "col-start-3 row-start-2" },
+                
+                { id: "door-btn", text: gameState.doorOpen ? "穿過鳥居離開" : "檢查結界鳥居", action: checkDoor, gridClass: "col-start-2 row-start-3" }
+            ];
+            
+            updateScene("神社境內", desc, buttons, promptKey, 'grid');
+
+            if(e) {
+                setTimeout(() => {
+                    const btns = document.querySelectorAll('#interaction-area button');
+                    for(let btn of btns) {
+                        if(btn.innerText.includes("塌塌米")) {
+                            btn.focus();
+                            break;
+                        }
+                    }
+                }, 150); 
+            }
+        }
+
+        function renderDesk() {
+            // 無論是否點亮，進入時都顯示全景 "desk"
+            const promptKey = "desk";
+            
+            // 圖片切換輔助函式
+            const setImg = (key) => {
+                const img = document.getElementById('scene-img');
+                if(!img || !scenePrompts[key]) return;
+                
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[key])}?width=800&height=350&nologo=true&seed=${key.length*123}`;
+                if(img.src !== url) {
+                    img.src = url;
+                    img.alt = sceneImageAlts[key] || "圖片";
+                }
+            };
+
+            const btns = [
+                {
+                    text: gameState.drawerOpen ? "檢查舊抽屜" : "嘗試打開舊抽屜",
+                    action: (e) => {
+                        if (gameState.drawerOpen) speak("口述影像：抽屜空空的。");
+                        else if (gameState.hasRustyKey) {
+                            gameState.drawerOpen = true; gameState.hasBattery = true;
+                            gameState.inventory.push("白色蠟燭");
+                            gameState.inventory = gameState.inventory.filter(i=>i!=="舊神社鑰匙");
+                            handleInteractionInPlace(e, "口述影像：你將舊神社鑰匙插入生鏽的鎖孔。喀一聲！抽屜開了。你獲得了：白色蠟燭。", "檢查舊抽屜", updateInventoryDisplay, 'unlock', 0);
+                        } else { sfx.error(0); speak("口述影像：抽屜鎖得很緊，需要鑰匙。"); }
+                    },
+                    // 焦點回到抽屜時，切換回全景
+                    onFocus: () => setImg("desk")
+                },
+                {
+                    text: gameState.radioFixed ? "觀察石燈籠 (線索)" : "檢查石燈籠",
+                    action: (e) => {
+                        if (gameState.radioFixed) {
+                            sfx.static(3, 0); 
+                            speak("口述影像：光影聚焦成一個清晰的點。", "燈籠光影");
+                            gameState.codeKnown = true;
+                        } else if (gameState.hasBattery) {
+                            gameState.radioFixed = true;
+                            gameState.inventory = gameState.inventory.filter(i=>i!=="白色蠟燭");
+                            handleInteractionInPlace(e, "口述影像：你將白色蠟燭放入燈籠點燃。光影投射出來了。", "觀察石燈籠 (線索)", () => { 
+                                updateInventoryDisplay(); 
+                                renderDesk(); 
+                                setImg("deskLit"); // 點亮後直接顯示特寫
+                            }, 'click', 0);
+                        } else { sfx.error(0); speak("石室黑漆漆的。你需要放進光源。"); }
+                    },
+                    // 焦點在燈籠按鈕時：若已點亮，顯示特寫 deskLit；否則顯示全景 desk
+                    onFocus: () => {
+                        if(gameState.radioFixed) {
+                            setImg("deskLit");
+                            // 延遲播放提示，避免被按鈕本身的朗讀打斷
+                            setTimeout(() => speak("圖片已切換為燈籠特寫，請按 G 鍵聽取。", "", false), 150);
+                        } else {
+                            setImg("desk");
+                        }
+                    }
+                },
+                { 
+                    text: "回到神社境內", 
+                    action: renderMainRoom,
+                    // 焦點回到離開按鈕時，切換回全景
+                    onFocus: () => setImg("desk")
+                }
+            ];
+            updateScene("社務所", "這裡有一個無人的社務所櫃檯。", btns, promptKey, 'list');
+        }
+
+        function renderBookshelf() {
+            let desc = "這是掛滿祈願繪馬的架子，木頭已經腐朽。";
+            if (gameState.diaryRead) desc += " 你讀過日誌，知道了密碼順序。";
+            const promptKey = "bookshelf"; 
+            
+            const setImg = (key) => {
+                const img = document.getElementById('scene-img');
+                if(!img || !scenePrompts[key]) return;
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[key])}?width=800&height=350&nologo=true&seed=${key.length*123}`;
+                if(img.src !== url) {
+                    img.src = url;
+                    img.alt = sceneImageAlts[key] || "圖片";
+                }
+            };
+
+            const btns = [
+                {
+                    text: "摸索繪馬架上的日誌",
+                    action: (e) => {
+                        sfx.pageFlip(-0.7); gameState.diaryRead = true;
+                        // 修正：刪除「解謎順序」字樣
+                        speak("口述影像：日誌寫著：『石碑 -> 長椅 -> 燈籠 -> 三味線』。", "閱讀內容");
+                    },
+                    onFocus: () => setImg("bookshelf")
+                },
+                {
+                    text: "檢查架上的供品 (線索)",
+                    action: (e) => {
+                        sfx.twang(-0.7); 
+                        speak("口述影像：圖片已更新為三味線特寫。請按 G 鍵聽取圖片描述，判斷黑木上的白點位置。", "關鍵線索");
+                    },
+                    // 新增：焦點移到此按鈕時，切換圖片並語音提示
+                    onFocus: () => {
+                        setImg("shamisenClue");
+                        setTimeout(() => speak("圖片已切換為三味線特寫，請按 G 鍵聽取。", "", false), 150);
+                    }
+                },
+                {
+                    text: "摸索架子角落",
+                    action: (e) => {
+                        sfx.rustle(0);
+                        speak("口述影像：角落堆積著厚厚的灰塵，除此之外什麼也沒有。", "提示");
+                    },
+                    onFocus: () => setImg("bookshelf")
+                },
+                { 
+                    text: "回到神社境內", 
+                    action: renderMainRoom,
+                    onFocus: () => setImg("bookshelf")
+                }
+            ];
+            updateScene("繪馬架", desc, btns, promptKey, 'list');
+        }
+
+        function renderBed() {
+            const promptKey = "bed";
+            
+            const setImg = (key) => {
+                const img = document.getElementById('scene-img');
+                if(!img || !scenePrompts[key]) return;
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[key])}?width=800&height=350&nologo=true&seed=${key.length*123}`;
+                if(img.src !== url) {
+                    img.src = url;
+                    img.alt = sceneImageAlts[key] || "圖片";
+                }
+            };
+
+            const btns = [
+                { 
+                    text: "撫摸長椅表面", 
+                    action: () => { sfx.rustle(0.7); speak("口述影像：長椅表面濕濕滑滑的。"); },
+                    onFocus: () => setImg("bed")
+                },
+                { 
+                    text: "檢查長椅扶手 (線索)", 
+                    action: (e) => { 
+                        sfx.thud(0.7); 
+                        speak("口述影像：圖片已更新為扶手特寫。請按 G 鍵聽取圖片描述，判斷孔洞的位置。", "關鍵線索"); 
+                    },
+                    // 新增：焦點移到此按鈕時，切換圖片並語音提示
+                    onFocus: () => {
+                        setImg("bedClue");
+                        setTimeout(() => speak("圖片已切換為扶手特寫，請按 G 鍵聽取。", "", false), 150);
+                    }
+                },
+                { 
+                    text: "摸索長椅下方", 
+                    action: (e) => {
+                        if (gameState.hasRustyKey || gameState.drawerOpen) { sfx.rustle(0.7); speak("口述影像：只有濕落葉。"); }
+                        else {
+                            gameState.hasRustyKey = true; gameState.inventory.push("舊神社鑰匙");
+                            handleInteractionInPlace(e, "口述影像：你在泥土裡摸到一把舊神社鑰匙！", "摸索長椅下方 (已無物品)", updateInventoryDisplay, 'success', 0.7);
+                        }
+                    },
+                    onFocus: () => setImg("bed")
+                },
+                { 
+                    text: "回到神社境內", 
+                    action: renderMainRoom,
+                    onFocus: () => setImg("bed")
+                }
+            ];
+            updateScene("參拜者休息長椅", "一張設在樹下的木製長椅。", btns, promptKey, 'list');
+        }
+
+        function renderRug() {
+            const btns = [
+                { text: "踩踏塌塌米", action: () => { sfx.thud(0); speak("口述影像：腳下藺草編織的觸感。"); } },
+                { 
+                    text: "掀開塌塌米", 
+                    action: (e) => {
+                        if (gameState.hasScrewdriver) { sfx.rustle(0); speak("口述影像：下面只有舊木板。"); }
+                        else {
+                            gameState.hasScrewdriver = true; gameState.inventory.push("清潔刷");
+                            handleInteractionInPlace(e, "口述影像：你在縫隙中摸到一把清潔刷。", "掀開塌塌米 (已無物品)", updateInventoryDisplay, 'success', 0);
+                        }
+                    }
+                },
+                { text: "回到神社境內", action: renderMainRoom }
+            ];
+            updateScene("本殿塌塌米", "本殿地板上鋪著舊舊的塌塌米。", btns, "rug", 'list');
+        }
+
+        function renderPainting() {
+            const promptKey = "painting";
+            
+            const setImg = (key) => {
+                const img = document.getElementById('scene-img');
+                if(!img || !scenePrompts[key]) return;
+                const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[key])}?width=800&height=350&nologo=true&seed=${key.length*123}`;
+                if(img.src !== url) {
+                    img.src = url;
+                    img.alt = sceneImageAlts[key] || "圖片";
+                }
+            };
+
+            const btns = [
+                { 
+                    text: "觸摸石碑", 
+                    action: () => { sfx.tap(-0.4); speak("口述影像：冰冷的石碑，長滿青苔。"); },
+                    onFocus: () => setImg("painting")
+                },
+                {
+                    text: "清理並觀察石碑 (線索)", 
+                    action: (e) => {
+                        if (gameState.hasScrewdriver) {
+                            sfx.rustle(-0.4);
+                            if (!gameState.stoneCleaned) {
+                                gameState.stoneCleaned = true;
+                                speak("口述影像：青苔清理乾淨了。請按 G 鍵聽取石碑特寫圖片描述，判斷凸點位置。", "關鍵線索");
+                            } else speak("口述影像：請按 G 鍵確認圖片描述。", "關鍵線索");
+                            
+                            setImg("paintingCleaned");
+                        } else { sfx.error(-0.4); speak("石碑長滿青苔，摸不出圖案。你需要工具。"); }
+                    },
+                    // 新增：只有在清理後，焦點移到此按鈕時才切換圖片並語音提示
+                    onFocus: () => {
+                        if(gameState.stoneCleaned) {
+                            setImg("paintingCleaned");
+                            setTimeout(() => speak("圖片已切換為石碑特寫，請按 G 鍵聽取。", "", false), 150);
+                        } else {
+                            setImg("painting");
+                        }
+                    }
+                },
+                { 
+                    text: "回到神社境內", 
+                    action: renderMainRoom,
+                    onFocus: () => setImg("painting")
+                }
+            ];
+            updateScene("古老的石碑", "一塊立在角落的石碑。", btns, promptKey, 'list');
+        }
+
+        function renderSafe() {
+            if (gameState.safeUnlocked) return updateScene("機關木盒", "木盒空了。", [{ text: "回到神社境內", action: renderMainRoom }], "safe", 'list');
+            
+            const promptKey = "safe";
+            const imgEl = document.getElementById('scene-img');
+            if(imgEl && scenePrompts[promptKey]) {
+                imgEl.src = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts[promptKey])}?width=800&height=350&nologo=true&seed=${promptKey.length*123}`;
+                imgEl.alt = sceneImageAlts[promptKey] || "機關木盒圖片"; 
+                imgEl.tabIndex = 0;
+            }
+            
+            document.getElementById('scene-heading').innerText = "機關木盒";
+            updateInventoryDisplay();
+            
+            const interactionArea = document.getElementById('interaction-area');
+            interactionArea.className = 'flex flex-col gap-2'; // Force list
+            interactionArea.innerHTML = '';
+
+            const div = document.createElement('div'); div.className = "mb-4";
+            const label = document.createElement('label'); label.innerText = "輸入密碼:"; label.className = "block font-bold mb-1 text-gray-300";
+            const input = document.createElement('input'); input.type = "text"; input.className = "border p-2 w-full rounded bg-gray-700 text-white border-gray-600";
+            input.setAttribute("aria-label", "密碼輸入框");
+            div.appendChild(label); div.appendChild(input); interactionArea.appendChild(div);
+
+            const submitBtn = document.createElement('button');
+            submitBtn.className = "item-btn bg-blue-600 text-white border-blue-500";
+            submitBtn.innerText = "確認輸入";
+            submitBtn.onclick = (e) => {
+                if (gameState.safeUnlocked) {
+                    speak("保險箱已經解鎖了。");
+                    return;
+                }
+
+                // 密碼邏輯：石碑(5) -> 長椅(3) -> 燈籠(1) -> 三味線(2) => 5312
+                if(input.value === "5312") {
+                    gameState.safeUnlocked = true; gameState.hasKeycard = true; gameState.inventory.push("御守");
+                    handleInteractionInPlace(e, "口述影像：喀噠！木盒彈開。你獲得了：御守。", "密碼正確 (已開啟)", () => { updateInventoryDisplay(); input.disabled = true; }, 'success', 0.4);
+                } else {
+                    gameState.wrongPasswordCount++;
+                    if(gameState.wrongPasswordCount >= 3) {
+                        speakThenTransition("你多次嘗試錯誤... 黑暗中傳來憤怒的低語... (Bad Ending)", () => renderEnding('bad'), 'error');
+                    } else {
+                        sfx.error(0.4); speak("密碼錯誤。請重新輸入。", "錯誤音效"); input.value = ""; input.focus();
+                    }
+                }
+            };
+            interactionArea.appendChild(submitBtn);
+            const backBtn = document.createElement('button'); backBtn.className = "item-btn"; backBtn.innerText = "回到神社境內"; backBtn.onclick = (e) => renderMainRoom(e);
+            interactionArea.appendChild(backBtn);
+        }
+
+        function checkDoor(e) {
+            if (gameState.doorOpen) {
+                const isTrueEnding = gameState.diaryRead && gameState.stoneCleaned && gameState.radioFixed;
+                speakThenTransition("恭喜！你成功逃出了密室！", () => renderEnding(isTrueEnding ? 'true' : 'normal'), 'success');
+            } else {
+                if (gameState.hasKeycard) {
+                    gameState.doorOpen = true;
+                    
+                    // 手動更新圖片為 "mainOpen"
+                    const img = document.getElementById('scene-img');
+                    if(img && scenePrompts['mainOpen']) {
+                        const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(scenePrompts['mainOpen'])}?width=800&height=350&nologo=true&seed=${'mainOpen'.length*123}`;
+                        img.src = url;
+                        img.alt = sceneImageAlts['mainOpen'];
+                    }
+
+                    // 修改語音提示：直接描述場景變化，並說明下一步
+                    const speech = "口述影像：你將御守靠近鳥居。隨著一陣光芒，結界碎裂消散。原本黑暗的神社此刻被清晨的陽光籠罩，金色的光芒穿透鳥居灑落，充滿了希望。再按一次按鈕即可穿過鳥居離開。";
+                    
+                    handleInteractionInPlace(e, speech, "穿過鳥居離開", null, 'unlock', 0);
+                } else { sfx.error(0); speak("門鎖住了。你需要護身符。", "提示"); }
+            }
+        }
+
+        // ==============================================
+        // 6. DOM 初始化
+        // ==============================================
+        
+        function jumpToHeading() {
+            const headings = Array.from(document.querySelectorAll('h1, h2, h3, h4, h5, h6'))
+                .filter(el => el.offsetParent !== null); 
+            if (headings.length === 0) return;
+            const current = document.activeElement;
+            const currentIndex = headings.indexOf(current);
+            let nextIndex = 0; 
+
+            if (currentIndex !== -1) {
+                nextIndex = (currentIndex + 1) % headings.length;
+            } else {
+                let found = false;
+                for (let i = 0; i < headings.length; i++) {
+                    if (current.compareDocumentPosition(headings[i]) & Node.DOCUMENT_POSITION_FOLLOWING) {
+                        nextIndex = i;
+                        found = true;
+                        break;
+                    }
+                }
+            }
+            headings[nextIndex].focus();
+            sfx.click();
+        }
+        
+        // 圖片導航邏輯 (G / Shift+G)
+        function jumpToImage(shiftKey) {
+            const images = Array.from(document.querySelectorAll('img')).filter(el => el.offsetParent !== null); // 只抓可見圖片
+            if (images.length === 0) return;
+
+            const current = document.activeElement;
+            const currentIndex = images.indexOf(current);
+            let nextIndex = 0;
+
+            if (currentIndex !== -1) {
+                if (shiftKey) {
+                    // Previous Graphic
+                    nextIndex = currentIndex - 1;
+                    if (nextIndex < 0) nextIndex = images.length - 1;
+                } else {
+                    // Next Graphic
+                    nextIndex = (currentIndex + 1) % images.length;
+                }
+            } else {
+                // 如果目前沒有聚焦在圖片上，G 跳第一張，Shift+G 跳最後一張
+                nextIndex = shiftKey ? images.length - 1 : 0;
+            }
+            
+            const targetImg = images[nextIndex];
+            
+            // 如果焦點沒有改變 (例如只有一張圖，或已經在目標圖上)，手動觸發語音
+            if (targetImg === current) {
+                const text = targetImg.alt || "圖片";
+                speak(text, "圖片", true);
+            } else {
+                targetImg.focus();
+            }
+            sfx.click();
+        }
+        
+        // 獲取所有可導航元素 (包含文字)
+        function getVirtualItems() {
+            return Array.from(document.querySelectorAll('#main-content h1, #main-content h2, #main-content h3, #main-content .readable, #main-content button:not([disabled]), #main-content input:not([disabled]), #main-content img[tabindex]'))
+                .filter(el => el.offsetParent !== null);
+        }
+
+        // 空間導航邏輯 (Smart Navigation)
+        function moveVirtualFocus(direction) {
+            const allItems = getVirtualItems(); // 使用所有可讀項目
+            const allButtons = Array.from(document.querySelectorAll('.item-btn')).filter(e => e.offsetParent);
+            const current = document.activeElement;
+            const currentIndex = allItems.indexOf(current);
+            const btnIndex = allButtons.indexOf(current);
+
+            // 1. Grid 模式 (僅在焦點位於按鈕上時觸發空間邏輯)
+            if (currentLayoutMode === 'grid' && btnIndex !== -1) {
+                let nextBtnIndex = btnIndex;
+                let handled = false;
+
+                // Grid 映射:
+                switch (direction) {
+                    case 37: // Left
+                        if (btnIndex === 1) nextBtnIndex = 0;
+                        else if (btnIndex === 2) nextBtnIndex = 1;
+                        else if (btnIndex === 4) nextBtnIndex = 3;
+                        else if (btnIndex === 5) nextBtnIndex = 4;
+                        handled = true;
+                        break;
+                    case 39: // Right
+                        if (btnIndex === 0) nextBtnIndex = 1;
+                        else if (btnIndex === 1) nextBtnIndex = 2;
+                        else if (btnIndex === 3) nextBtnIndex = 4;
+                        else if (btnIndex === 4) nextBtnIndex = 5;
+                        handled = true;
+                        break;
+                    case 38: // Up
+                        if (btnIndex >= 3 && btnIndex <= 5) nextBtnIndex = btnIndex - 3;
+                        else if (btnIndex === 6) nextBtnIndex = 4;
+                        else {
+                            // Top row boundary break: Move linear prev (to text)
+                            const prevItem = allItems[currentIndex - 1];
+                            if(prevItem) { prevItem.focus(); sfx.click(); return; }
+                        }
+                        handled = true;
+                        break;
+                    case 40: // Down
+                        if (btnIndex >= 0 && btnIndex <= 2) nextBtnIndex = btnIndex + 3;
+                        else if (btnIndex === 4) nextBtnIndex = 6;
+                        handled = true;
+                        break;
+                }
+                
+                // 如果 Grid 邏輯有改變按鈕索引，且按鈕存在，則移動焦點
+                if (handled && nextBtnIndex !== btnIndex && allButtons[nextBtnIndex]) {
+                    allButtons[nextBtnIndex].focus();
+                    sfx.click();
+                    return;
+                }
+                // 如果 Grid 邏輯沒處理 (例如最左邊按左)，則 Fallback 到線性導航
+            }
+
+            // 2. 線性導航 (List模式 / 非按鈕元素 / Grid邊界Fallback)
+            let nextIndex = currentIndex;
+            if (currentIndex === -1) {
+                // 如果迷失，優先跳到第一個按鈕，若無則跳第一個元素
+                if (allButtons.length > 0) allButtons[0].focus();
+                else if (allItems.length > 0) allItems[0].focus();
+                sfx.click();
+                return;
+            }
+
+            if (direction === 38 || direction === 37) { // Up / Left -> Prev
+                nextIndex = currentIndex - 1;
+                if (nextIndex < 0) nextIndex = allItems.length - 1; // 循環
+            } else if (direction === 40 || direction === 39) { // Down / Right -> Next
+                nextIndex = currentIndex + 1;
+                if (nextIndex >= allItems.length) nextIndex = 0; // 循環
+            }
+            
+            if (allItems[nextIndex]) {
+                allItems[nextIndex].focus();
+                sfx.click();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            const startBtn = document.getElementById('start-btn');
+            const toggleVisualBtn = document.getElementById('toggle-visual-btn');
+            const blindCurtain = document.getElementById('blind-curtain');
+
+            if(startBtn) {
+                startBtn.addEventListener('click', () => {
+                    sfx.init(); sfx.startAmbient(); preloadImages();
+                    document.getElementById('status-log').classList.remove('hidden');
+                    document.getElementById('game-container').classList.remove('hidden');
+                    document.getElementById('instructions').classList.add('hidden');
+                    startBtn.parentElement.classList.add('hidden');
+                    
+                    const curtain = document.getElementById('blind-curtain');
+                    curtain.style.display = 'block';
+                    gameState.isBlindMode = true;
+                    
+                    renderMainRoom();
+                    isSystemSpeaking = true;
+                    
+                    setTimeout(() => {
+                        const intro = "口述影像：現在是深夜，你獨自站在一座深山中的廢棄神社裡。冰冷的雨水無情地拍打在腳下的石板路上，發出清晰而孤寂的淅瀝聲。空氣中瀰漫著濃重的潮濕泥土味，還夾雜著一股陳舊、腐朽的木頭氣息，讓人感到一絲寒意。你的正前方是社務所櫃檯，左前方立著一塊古老的石碑，右前方則放著一個精緻的機關木盒。你的左手邊是繪馬架，右手邊是參拜者長椅，腳下踩著本殿的塌塌米。唯一的出口——那座巨大的紅色鳥居就在你的正後方，但它周圍似乎籠罩著一層看不見的結界，阻擋了去路。現在，四周伸手不見五指，請完全沉浸在聽覺與觸覺的世界中，探索環境、尋找線索，解開這座神社的謎題並逃離這裡。";
+                        const u = speak(intro, "開場", true);
+                        if(u) {
+                            u.onend = () => {
+                                const start = "遊戲開始。請按 H 鍵聽取標題，或按 G 鍵聽取場景圖片，Tab與方向鍵探索物品，Enter確認執行。";
+                                const u2 = speak(start, "提示", true);
+                                if(u2) u2.onend = () => isSystemSpeaking = false;
+                                else isSystemSpeaking = false;
+                            };
+                        } else {
+                            isSystemSpeaking = false;
+                        }
+                    }, 500);
+                });
+            }
+
+            if(toggleVisualBtn) toggleVisualBtn.addEventListener('click', toggleBlindMode);
+            
+            if(blindCurtain) {
+                blindCurtain.addEventListener('click', (e) => {
+                    // 如果系統正在進行重要旁白（如開場），忽略點擊，避免語音被打斷
+                    if (isSystemSpeaking) return;
+                    speak("請使用鍵盤操作。", "系統提示");
+                });
+            }
+        });
+
+        // 事件監聽：鍵盤
+        document.addEventListener('keydown', (e) => {
+            if(e.key === 'F9') { 
+                e.preventDefault();
+                toggleBlindMode(); 
+                return; 
+            }
+            
+            if (isSystemSpeaking) {
+                e.preventDefault();
+                return;
+            }
+
+            if (e.key === 'Tab') {
+                handleFocusTrap(e);
+                return; 
+            }
+            
+            // 方向鍵監聽 (37-40)
+            if (e.keyCode >= 37 && e.keyCode <= 40) {
+                 e.preventDefault();
+                 moveVirtualFocus(e.keyCode);
+                 return;
+            }
+
+            if(e.key === 'Control') { if(synth) synth.cancel(); return; }
+            if(e.key === 'h' || e.key === 'H') { e.preventDefault(); jumpToHeading(); }
+            if(e.key === 'g' || e.key === 'G') { e.preventDefault(); jumpToImage(e.shiftKey); }
+        });
+
+        // 事件監聽：焦點
+        document.addEventListener('focusin', (e) => {
+            if (isSystemSpeaking) return;
+            let text = e.target.getAttribute('aria-label') || e.target.innerText;
+            if (e.target.tagName === 'INPUT' && e.target.value) text = `編輯區, ${e.target.value}`;
+            // 新增圖片語音邏輯
+            if (e.target.tagName === 'IMG') text = e.target.alt || "圖片";
+            
+            speak(text, e.target.tagName === 'BUTTON' ? '按鈕' : '', true);
+        });
+
+    </script>
+</body>
+</html>
